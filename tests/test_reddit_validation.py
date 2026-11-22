@@ -4,12 +4,45 @@ import pandas as pd
 import pytest
 
 from datasuper.reddit_validation import (
+    ArcticShiftClient,
     comment_metrics,
     evaluate_prediction,
     extract_post_id,
     make_payload,
     validate_reddit_post,
 )
+
+
+def test_archive_422_after_valid_page_ends_pagination() -> None:
+    class FakeResponse:
+        def __init__(self, status_code: int, data: list[dict] | None = None) -> None:
+            self.status_code = status_code
+            self.data = data or []
+
+        def raise_for_status(self) -> None:
+            if self.status_code >= 400:
+                raise RuntimeError("unexpected HTTP error")
+
+        def json(self) -> dict:
+            return {"data": self.data}
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.responses = [
+                FakeResponse(200, [{"id": "p1", "created_utc": 1_704_067_200}]),
+                FakeResponse(422),
+            ]
+
+        def get(self, *args, **kwargs) -> FakeResponse:
+            return self.responses.pop(0)
+
+    records = ArcticShiftClient(FakeSession()).search(
+        "posts",
+        after=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        before=datetime(2024, 1, 2, tzinfo=timezone.utc),
+        subreddit="datascience",
+    )
+    assert [record["id"] for record in records] == ["p1"]
 
 
 def test_extract_post_id_from_url_or_bare_id() -> None:

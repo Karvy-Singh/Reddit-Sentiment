@@ -83,8 +83,10 @@ class ArcticShiftClient:
                 f"{BASE_URL}/{kind}/search", params=params, timeout=(15, 180)
             )
             # Arctic Shift sometimes uses 422 rather than an empty page at the
-            # end of a valid author-filtered search.
-            if response.status_code == 422 and "author" in filters:
+            # end of a valid paginated search.
+            if response.status_code == 422 and (
+                records_by_id or "author" in filters
+            ):
                 break
             response.raise_for_status()
             page = response.json().get("data", [])
