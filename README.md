@@ -70,6 +70,21 @@ Run tests:
 .venv/bin/python -m pytest
 ```
 
+Test the model against a real Reddit post URL:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/validate_reddit_post.py \
+  "https://www.reddit.com/r/datascience/comments/POST_ID/post_title/"
+```
+
+The command supports `r/MachineLearning`, `r/artificial`, and `r/datascience`.
+It waits until the post is one hour old, builds the prediction from timestamped
+comments and prior activity in the Arctic Shift archive, and saves the result in
+`reports/reddit_predictions/`. Run the same command again after the post is 72
+hours old to record the actual reply count and whether the prediction was
+correct. A post already older than 72 hours is evaluated retrospectively in one
+run; use a post between one and 72 hours old for a genuinely prospective test.
+
 Start the API:
 
 ```bash
