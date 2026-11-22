@@ -15,17 +15,30 @@ def test_thresholds_are_learned_per_community() -> None:
         {
             "subreddit": ["a"] * 10 + ["b"] * 10,
             "reply_count_72h": list(range(10)) + list(range(0, 100, 10)),
+            "score_observed": list(range(10)) + list(range(0, 100, 10)),
         }
     )
     thresholds = engagement_thresholds(train)
-    assert thresholds == {"a": 9, "b": 90}
+    assert thresholds == {
+        "a": {"reply_count_72h": 9, "score_observed": 9},
+        "b": {"reply_count_72h": 90, "score_observed": 90},
+    }
     assert engagement_labels(train, thresholds).sum() == 2
+
+    score_only = pd.DataFrame(
+        {"subreddit": ["a"], "reply_count_72h": [0], "score_observed": [136]}
+    )
+    assert engagement_labels(score_only, thresholds).item() == 1
 
 
 def test_unknown_community_fails_closed() -> None:
-    frame = pd.DataFrame({"subreddit": ["unknown"], "reply_count_72h": [1]})
+    frame = pd.DataFrame(
+        {"subreddit": ["unknown"], "reply_count_72h": [1], "score_observed": [1]}
+    )
     with pytest.raises(ValueError, match="missing engagement thresholds"):
-        engagement_labels(frame, {"known": 1})
+        engagement_labels(
+            frame, {"known": {"reply_count_72h": 1, "score_observed": 1}}
+        )
 
 
 def test_model_features_exclude_retrieval_time_body_state() -> None:

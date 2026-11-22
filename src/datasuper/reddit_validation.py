@@ -216,16 +216,24 @@ def collect_post_data(
 
 
 def evaluate_prediction(
-    prediction: dict[str, Any], actual_replies: int, engagement_threshold: int
+    prediction: dict[str, Any],
+    actual_replies: int,
+    actual_score: int,
+    engagement_thresholds: dict[str, int],
 ) -> dict[str, Any]:
     actual_label = (
         "high_engagement"
-        if actual_replies >= engagement_threshold
+        if (
+            actual_replies >= engagement_thresholds["reply_count_72h"]
+            or actual_score >= engagement_thresholds["score_observed"]
+        )
         else "ordinary_engagement"
     )
     return {
         "actual_reply_count_72h": actual_replies,
-        "engagement_reply_threshold": engagement_threshold,
+        "actual_score_observed": actual_score,
+        "engagement_reply_threshold": engagement_thresholds["reply_count_72h"],
+        "engagement_score_threshold": engagement_thresholds["score_observed"],
         "actual_label": actual_label,
         "prediction_correct": prediction["label"] == actual_label,
     }
@@ -271,9 +279,17 @@ def validate_reddit_post(
         dataset_start,
     )
     output_path = output_dir / f"{post_id}.json"
+    previous_model_version = None
     if output_path.exists():
         record = json.loads(output_path.read_text(encoding="utf-8"))
+        previous_model_version = record.get("prediction", {}).get("model_version")
     else:
+        record = None
+    if (
+        previous_model_version != artifact["model_version"]
+        or record is None
+        or "engagement_thresholds" not in record.get("prediction", {})
+    ):
         payload = make_payload(
             post,
             metrics,
@@ -291,18 +307,22 @@ def validate_reddit_post(
             "features_at_1h": payload.model_dump(exclude={"title"}),
             "prediction": predict(payload, log=False),
         }
+        if previous_model_version and previous_model_version != artifact["model_version"]:
+            record["supersedes_model_version"] = previous_model_version
 
     record["latest_observation"] = {
         "observed_at_utc": now.isoformat(),
         "post_age_hours": age.total_seconds() / 3600,
         "replies_observed_so_far": metrics["reply_count_72h"],
+        "score_observed": int(post.get("score") or 0),
     }
     if age >= timedelta(hours=72):
         record.pop("evaluation_available_at_utc", None)
         record["evaluation"] = evaluate_prediction(
             record["prediction"],
             metrics["reply_count_72h"],
-            int(artifact["thresholds"][subreddit]),
+            int(post.get("score") or 0),
+            artifact["thresholds"][subreddit],
         )
         record["evaluated_at_utc"] = now.isoformat()
     else:
@@ -310,6 +330,8 @@ def validate_reddit_post(
             created_at + timedelta(hours=72)
         ).isoformat()
 
+    if record.get("supersedes_model_version") == artifact["model_version"]:
+        record.pop("supersedes_model_version")
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     return record

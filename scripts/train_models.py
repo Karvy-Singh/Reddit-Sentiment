@@ -252,18 +252,20 @@ def main() -> None:
     model_dir.mkdir(exist_ok=True)
     publication_artifact = {
         "model": publication_classifier,
-        "model_version": "1.0.0-pilot",
+        "model_version": "2.0.0-hybrid",
         "features": MODEL_FEATURES,
         "thresholds": thresholds,
+        "target_definition": "top-10% replies within 72h or top-5% observed Reddit score",
         "trained_at_utc": datetime.now(timezone.utc).isoformat(),
         "training_rows": len(development),
         "decision_threshold": publication_report["decision_threshold"],
     }
     early_artifact = {
         "model": early_classifier,
-        "model_version": "2.0.0-early",
+        "model_version": "3.0.0-hybrid-early",
         "features": EARLY_MODEL_FEATURES,
         "thresholds": thresholds,
+        "target_definition": "top-10% replies within 72h or top-5% observed Reddit score",
         "trained_at_utc": datetime.now(timezone.utc).isoformat(),
         "training_rows": len(development),
         "decision_threshold": early_report["decision_threshold"],
@@ -272,6 +274,7 @@ def main() -> None:
     joblib.dump(early_artifact, model_dir / "engagement_classifier.joblib")
 
     report = {
+        "target_definition": "top-10% replies within 72h or top-5% observed Reddit score",
         "split_rows": {"train": len(train), "validation": len(validation), "test": len(test)},
         "class_rates": {
             "train": float(train_y.mean()),

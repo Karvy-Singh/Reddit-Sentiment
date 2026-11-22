@@ -39,15 +39,23 @@ def add_topics(
     return result, keywords
 
 
-def add_high_engagement(frame: pd.DataFrame, quantile: float = 0.90) -> pd.DataFrame:
-    if not 0 < quantile < 1:
+def add_high_engagement(
+    frame: pd.DataFrame, quantile: float = 0.90, score_quantile: float = 0.95
+) -> pd.DataFrame:
+    if not 0 < quantile < 1 or not 0 < score_quantile < 1:
         raise ValueError("quantile must be between zero and one")
     result = frame.copy()
-    thresholds = result.groupby("subreddit")["reply_count_72h"].transform(
+    reply_thresholds = result.groupby("subreddit")["reply_count_72h"].transform(
         lambda values: values.quantile(quantile, interpolation="higher")
     )
-    result["high_engagement_threshold"] = thresholds.astype("int64")
-    result["high_engagement"] = result["reply_count_72h"].ge(thresholds)
+    score_thresholds = result.groupby("subreddit")["score_observed"].transform(
+        lambda values: values.quantile(score_quantile, interpolation="higher")
+    )
+    result["high_engagement_threshold"] = reply_thresholds.astype("int64")
+    result["high_engagement_score_threshold"] = score_thresholds.astype("int64")
+    result["high_engagement"] = result["reply_count_72h"].ge(
+        reply_thresholds
+    ) | result["score_observed"].ge(score_thresholds)
     return result
 
 

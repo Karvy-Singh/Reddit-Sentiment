@@ -98,9 +98,16 @@ def test_real_post_payload_and_evaluation() -> None:
     assert payload.reply_count_1h == 2
 
     prediction = {"label": "high_engagement"}
-    assert evaluate_prediction(prediction, 12, 11) == {
-        "actual_reply_count_72h": 12,
+    assert evaluate_prediction(
+        prediction,
+        2,
+        136,
+        {"reply_count_72h": 11, "score_observed": 26},
+    ) == {
+        "actual_reply_count_72h": 2,
+        "actual_score_observed": 136,
         "engagement_reply_threshold": 11,
+        "engagement_score_threshold": 26,
         "actual_label": "high_engagement",
         "prediction_correct": True,
     }
@@ -118,6 +125,7 @@ def test_saved_prediction_is_later_evaluated(tmp_path) -> None:
                 "title": "A practical machine learning question",
                 "url": f"https://www.reddit.com/comments/{post_id}/",
                 "author": "[deleted]",
+                "score": 3,
             }
 
         def search(self, kind: str, **kwargs) -> list[dict]:

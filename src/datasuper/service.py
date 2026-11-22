@@ -53,6 +53,7 @@ def load_artifact() -> dict:
         "model_version",
         "features",
         "thresholds",
+        "target_definition",
         "decision_threshold",
     }
     missing = required.difference(artifact)
@@ -76,6 +77,8 @@ def predict(payload: PredictionRequest, log: bool = True) -> dict:
         "probability": probability,
         "decision_threshold": artifact["decision_threshold"],
         "model_version": artifact["model_version"],
+        "target_definition": artifact["target_definition"],
+        "engagement_thresholds": artifact["thresholds"][payload.subreddit],
     }
     if log:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

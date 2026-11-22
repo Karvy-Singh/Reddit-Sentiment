@@ -88,7 +88,7 @@ maximum_thread_depth_72h
 median_first_level_response_time
 ```
 
-Score will be treated as a secondary descriptive field only if its observation time and meaning are sufficiently documented in the supplied data.
+Score is a secondary engagement outcome. It is an archive snapshot, commonly refreshed around 36 hours, and is treated as Reddit's fuzzed net score rather than an exact upvote count. Shares are unavailable.
 
 ### Regression target
 
@@ -102,8 +102,9 @@ The transformation reduces the influence of the expected heavy right tail while 
 
 ```text
 high_engagement = 1 when reply_count_72h is at or above the
-                  subreddit-specific 90th percentile
-                  calculated from training-period posts only;
+                  subreddit-specific 90th percentile OR observed Reddit
+                  score is at or above the 95th percentile, with both
+                  thresholds calculated from training-period posts only;
                   otherwise 0
 ```
 

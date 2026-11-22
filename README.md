@@ -6,7 +6,7 @@ Data science pipeline for analyzing and predicting engagement patterns, discussi
 - 23,794 downloaded posts
 - 106,003 comments matched to downloaded root posts
 - 20,094 analysis posts from three communities with complete 72-hour comment windows
-- 72-hour reply outcomes derived from comment timestamps rather than snapshot comment totals
+- Hybrid engagement outcomes combine timestamped 72-hour replies with observed Reddit score
 - Stable local pseudonyms; raw usernames are absent from processed tables
 
 See `DATASET.md` for provenance, coverage, and limitations.
@@ -81,7 +81,7 @@ The command supports `r/MachineLearning`, `r/artificial`, and `r/datascience`.
 It waits until the post is one hour old, builds the prediction from timestamped
 comments and prior activity in the Arctic Shift archive, and saves the result in
 `reports/reddit_predictions/`. Run the same command again after the post is 72
-hours old to record the actual reply count and whether the prediction was
+hours old to record the actual reply count, observed score, and whether the prediction was
 correct. A post already older than 72 hours is evaluated retrospectively in one
 run; use a post between one and 72 hours old for a genuinely prospective test.
 The dashboard provides the same workflow in its **Prediction** tab.
@@ -113,10 +113,12 @@ PYTHONPATH=src .venv/bin/streamlit run dashboard.py
 ## Methodological Guardrails
 
 - Engagement thresholds are learned from training-period data only.
+- High engagement means either top-10% 72-hour replies or top-5% observed Reddit score within the community.
 - Splits are chronological: 70% training, 15% validation, and 15% testing.
 - Preprocessing, TF-IDF, SMOTE, and tuning are fitted without test data.
 - Retrieval-time body text is excluded from prediction because moderation can replace it after publication.
 - The one-hour model uses only replies already observed by the declared one-hour prediction cutoff.
+- Reddit score is an outcome only, never a prediction input; exact upvotes and shares are unavailable.
 - Model selection uses validation PR-AUC; the final test period is evaluated after selection.
 - Decision thresholds maximize F1 on validation data only and are then frozen for testing and API inference.
 - Dashboard outputs are aggregate and do not expose user identities or raw quotations.

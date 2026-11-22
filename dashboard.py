@@ -125,13 +125,23 @@ with prediction:
             else:
                 result = record["prediction"]
                 observation = record["latest_observation"]
-                columns = st.columns(3)
+                columns = st.columns(4)
                 columns[0].metric("Model prediction", result["label"].replace("_", " ").title())
                 columns[1].metric("High-engagement probability", f"{result['probability']:.1%}")
                 columns[2].metric("Replies observed so far", observation["replies_observed_so_far"])
+                columns[3].metric("Reddit score observed", observation["score_observed"])
                 st.caption(
                     f"Prediction used {record['features_at_1h']['reply_count_1h']} replies "
                     "from the first hour only. Later replies were not model inputs."
+                )
+                thresholds = result["engagement_thresholds"]
+                st.caption(
+                    "For this community, high engagement means at least "
+                    f"{thresholds['reply_count_72h']} replies in 72 hours or Reddit score "
+                    f"{thresholds['score_observed']}."
+                )
+                st.caption(
+                    "Reddit score is the platform's fuzzed net score, not an exact upvote or share count."
                 )
                 if "evaluation" in record:
                     evaluation = record["evaluation"]
@@ -140,8 +150,11 @@ with prediction:
                     else:
                         st.error("The model prediction did not match the actual 72-hour outcome.")
                     st.write(
-                        f"Actual: **{evaluation['actual_reply_count_72h']} replies** in 72 hours; "
-                        f"high-engagement threshold: **{evaluation['engagement_reply_threshold']}**."
+                        f"Actual: **{evaluation['actual_reply_count_72h']} replies** in 72 hours "
+                        f"and Reddit score **{evaluation['actual_score_observed']}**. "
+                        "High engagement requires either "
+                        f"**{evaluation['engagement_reply_threshold']} replies** or score "
+                        f"**{evaluation['engagement_score_threshold']}**."
                     )
                 else:
                     st.info(

@@ -93,7 +93,7 @@ The downloader skips completed files and resumes `.part` files from their last v
 ## Data Limitations
 
 - The archive may contain collection gaps or records later edited or deleted on Reddit.
-- Scores, comment totals, and upvote ratios are observation-time snapshots, not controlled 72-hour outcomes.
+- Scores and upvote ratios are archive snapshots, commonly refreshed around 36 hours but not at a perfectly controlled horizon. Reddit score is fuzzed and is not an exact upvote count. Shares are unavailable.
 - The API supplies records in pages of up to 100, so large comment ranges are slow to acquire.
 - Three months support basic trends and holdout forecasting, but not annual seasonality or broad generalization claims.
 - Comment files include replies to posts outside the selected root-post window; these are excluded from processed comments.
@@ -104,4 +104,4 @@ The downloader skips completed files and resumes `.part` files from their last v
 
 - Publication-time model: title, time, community, sentiment, and prior activity available when the post is created
 - Early model: publication features plus reply count and unique repliers observed during the first hour
-- Outcome: subreddit-specific top-decile replies accumulated within 72 hours
+- Outcome: high engagement when either 72-hour replies reach the subreddit-specific training-period 90th percentile or observed Reddit score reaches its 95th percentile

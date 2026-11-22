@@ -50,21 +50,46 @@ EARLY_NUMERIC_FEATURES = NUMERIC_FEATURES + ["reply_count_1h", "unique_repliers_
 EARLY_MODEL_FEATURES = EARLY_NUMERIC_FEATURES + CATEGORICAL_FEATURES + [TEXT_FEATURE]
 
 
-def engagement_thresholds(train: pd.DataFrame) -> dict[str, int]:
-    thresholds = train.groupby("subreddit")["reply_count_72h"].quantile(
+def engagement_thresholds(train: pd.DataFrame) -> dict[str, dict[str, int]]:
+    required = {"subreddit", "reply_count_72h", "score_observed"}
+    missing = required.difference(train.columns)
+    if missing:
+        raise ValueError(f"missing engagement columns: {sorted(missing)}")
+    grouped = train.groupby("subreddit")
+    reply_thresholds = grouped["reply_count_72h"].quantile(
         0.90, interpolation="higher"
     )
-    if thresholds.empty:
+    score_thresholds = grouped["score_observed"].quantile(
+        0.95, interpolation="higher"
+    )
+    if reply_thresholds.empty:
         raise ValueError("cannot calculate engagement thresholds from empty data")
-    return {str(key): int(value) for key, value in thresholds.items()}
+    return {
+        str(key): {
+            "reply_count_72h": int(reply_thresholds[key]),
+            "score_observed": int(score_thresholds[key]),
+        }
+        for key in reply_thresholds.index
+    }
 
 
-def engagement_labels(frame: pd.DataFrame, thresholds: dict[str, int]) -> pd.Series:
-    mapped = frame["subreddit"].map(thresholds)
-    if mapped.isna().any():
-        unknown = sorted(frame.loc[mapped.isna(), "subreddit"].unique())
+def engagement_labels(
+    frame: pd.DataFrame, thresholds: dict[str, dict[str, int]]
+) -> pd.Series:
+    unknown_mask = ~frame["subreddit"].isin(thresholds)
+    if unknown_mask.any():
+        unknown = sorted(frame.loc[unknown_mask, "subreddit"].unique())
         raise ValueError(f"missing engagement thresholds for: {unknown}")
-    return frame["reply_count_72h"].ge(mapped).astype("int8")
+    reply_thresholds = frame["subreddit"].map(
+        {key: value["reply_count_72h"] for key, value in thresholds.items()}
+    )
+    score_thresholds = frame["subreddit"].map(
+        {key: value["score_observed"] for key, value in thresholds.items()}
+    )
+    return (
+        frame["reply_count_72h"].ge(reply_thresholds)
+        | frame["score_observed"].ge(score_thresholds)
+    ).astype("int8")
 
 
 def preprocessor(numeric_features: list[str] | None = None) -> ColumnTransformer:

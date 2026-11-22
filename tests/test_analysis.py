@@ -9,11 +9,16 @@ def test_high_engagement_uses_group_thresholds() -> None:
         {
             "subreddit": ["a"] * 10 + ["b"] * 10,
             "reply_count_72h": list(range(10)) + list(range(0, 100, 10)),
+            "score_observed": list(range(10)) + list(range(0, 100, 10)),
         }
     )
     result = add_high_engagement(frame)
     assert result.groupby("subreddit")["high_engagement"].sum().eq(1).all()
     assert result.groupby("subreddit")["high_engagement_threshold"].first().to_dict() == {"a": 9, "b": 90}
+    assert result.groupby("subreddit")["high_engagement_score_threshold"].first().to_dict() == {
+        "a": 9,
+        "b": 90,
+    }
 
 
 def test_bootstrap_interval_is_ordered() -> None:
