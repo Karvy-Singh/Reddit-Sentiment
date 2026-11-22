@@ -221,3 +221,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Raw Reddit records and local pseudonymization material must stay local.
+data/raw/
+data/metadata/.author_salt
+
+# Generated analytical data can be recreated from the acquisition manifest.
+data/processed/
+
+models/*.joblib
+logs/*.jsonl

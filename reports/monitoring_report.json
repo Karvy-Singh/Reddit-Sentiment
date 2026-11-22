@@ -1,0 +1,8 @@
+{
+  "status": "insufficient_prediction_data",
+  "records": 5,
+  "positive_prediction_rate": 0.0,
+  "mean_probability": 0.011465838313677002,
+  "numeric_psi": {},
+  "warning_fields": []
+}

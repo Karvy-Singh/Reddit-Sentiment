@@ -1,0 +1,71 @@
+{
+  "generated_at_utc": "2026-11-22T05:47:36.824498+00:00",
+  "raw_post_files": [
+    "ChatGPT_posts_2024-01-01_2024-01-08_exclusive.jsonl",
+    "LocalLLaMA_posts_2024-01-01_2024-01-08_exclusive.jsonl",
+    "MachineLearning_posts_2024-01-01_2024-01-08_exclusive.jsonl",
+    "MachineLearning_posts_2024-01-08_2024-04-01_exclusive.jsonl",
+    "artificial_posts_2024-01-01_2024-01-08_exclusive.jsonl",
+    "artificial_posts_2024-01-08_2024-04-01_exclusive.jsonl",
+    "datascience_posts_2024-01-01_2024-01-08_exclusive.jsonl",
+    "datascience_posts_2024-01-08_2024-04-01_exclusive.jsonl",
+    "technology_posts_2024-01-01_2024-01-08_exclusive.jsonl"
+  ],
+  "raw_comment_files": [
+    "MachineLearning_comments_2024-01-01_2024-01-11_exclusive.jsonl",
+    "MachineLearning_comments_2024-01-11_2024-04-04_exclusive.jsonl",
+    "artificial_comments_2024-01-01_2024-01-11_exclusive.jsonl",
+    "artificial_comments_2024-01-11_2024-04-04_exclusive.jsonl",
+    "datascience_comments_2024-01-01_2024-01-11_exclusive.jsonl",
+    "datascience_comments_2024-01-11_2024-04-04_exclusive.jsonl"
+  ],
+  "posts": {
+    "rows": 23794,
+    "unique_ids": 23794,
+    "duplicate_ids_removed": 0,
+    "missing_id": 0,
+    "missing_author": 251,
+    "empty_text": 0,
+    "created_at_min": "2024-01-01T00:04:45+00:00",
+    "created_at_max": "2024-03-31T23:51:01+00:00",
+    "subreddits": {
+      "ChatGPT": 2492,
+      "LocalLLaMA": 546,
+      "MachineLearning": 9178,
+      "artificial": 5232,
+      "datascience": 5684,
+      "technology": 662
+    }
+  },
+  "comments": {
+    "rows": 114795,
+    "unique_ids": 114795,
+    "duplicate_ids_removed": 0,
+    "missing_id": 0,
+    "missing_author": 5650,
+    "empty_text": 0,
+    "created_at_min": "2024-01-01T00:01:02+00:00",
+    "created_at_max": "2024-04-03T23:58:19+00:00",
+    "subreddits": {
+      "MachineLearning": 43928,
+      "artificial": 32624,
+      "datascience": 38243
+    }
+  },
+  "comments_matching_downloaded_posts": 106003,
+  "comments_excluded_without_downloaded_post": 8792,
+  "processed_posts": 23794,
+  "processed_comments": 106003,
+  "analysis_posts": 20094,
+  "analysis_post_subreddits": [
+    "MachineLearning",
+    "artificial",
+    "datascience"
+  ],
+  "analysis_posts_with_replies_72h": 14338,
+  "outputs": {
+    "posts": "data/processed/posts.parquet",
+    "comments": "data/processed/comments.parquet",
+    "analysis_posts": "data/processed/analysis_posts.parquet"
+  }
+}

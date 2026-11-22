@@ -1,0 +1,9 @@
+{
+  "reply_events": 100341,
+  "unique_edges": 84096,
+  "nodes": 29668,
+  "density": 9.554620395872409e-05,
+  "weakly_connected_components": 58,
+  "largest_component_nodes": 29538,
+  "average_clustering_undirected": 0.001186527552071025
+}

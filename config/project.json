@@ -1,0 +1,19 @@
+{
+  "project_name": "DataSuper Reddit Behaviour Study",
+  "source": "Arctic Shift public API",
+  "subreddits": [
+    "artificial",
+    "MachineLearning",
+    "datascience",
+    "technology",
+    "ChatGPT",
+    "LocalLLaMA"
+  ],
+  "study_posts_start": "2024-01-01",
+  "study_posts_end_exclusive": "2024-04-01",
+  "comment_outcome_end_exclusive": "2024-04-04",
+  "engagement_horizon_hours": 72,
+  "pilot_start": "2024-01-01",
+  "pilot_posts_end_exclusive": "2024-01-08",
+  "pilot_comments_end_exclusive": "2024-01-11"
+}

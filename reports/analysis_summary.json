@@ -1,0 +1,128 @@
+{
+  "rows": 20094,
+  "communities": [
+    "MachineLearning",
+    "artificial",
+    "datascience"
+  ],
+  "topic_keywords": {
+    "0": [
+      "data",
+      "science",
+      "data science",
+      "career",
+      "data scientist",
+      "scientist",
+      "job",
+      "analytics"
+    ],
+    "1": [
+      "ai",
+      "ai generated",
+      "generated",
+      "video",
+      "2024",
+      "future",
+      "free",
+      "generative ai"
+    ],
+    "2": [
+      "learning",
+      "machine",
+      "machine learning",
+      "deep",
+      "deep learning",
+      "learn",
+      "learning ai",
+      "engineer"
+    ],
+    "3": [
+      "model",
+      "ml",
+      "models",
+      "like",
+      "using",
+      "use",
+      "best",
+      "data"
+    ],
+    "4": [
+      "help",
+      "need",
+      "need help",
+      "project",
+      "advice",
+      "resume",
+      "needed",
+      "need advice"
+    ]
+  },
+  "statistical_tests": {
+    "url_proportion_z_test": {
+      "statistic": 4.959427105866787,
+      "p_value": 7.070137067374658e-07,
+      "risk_difference": 0.10495876081271374
+    },
+    "weekend_welch_t_test": {
+      "statistic": 0.9529788572378921,
+      "p_value": 0.34062871076316764,
+      "cohen_d": 0.015682903677407576
+    },
+    "topic_chi_square": {
+      "statistic": 187.50745045728164,
+      "p_value": 1.8191594572143786e-39,
+      "cramers_v": 0.0965997640015742
+    },
+    "subreddit_anova": {
+      "statistic": 402.3256749503024,
+      "p_value": 4.791041724505268e-172,
+      "eta_squared": 0.03850807694034543,
+      "levene_p_value": 5.98314053621441e-20,
+      "kruskal_statistic": 3738.2764469590206,
+      "kruskal_p_value": 0.0
+    }
+  },
+  "probability": {
+    "conditional_probabilities": {
+      "p_high": 0.10386184930825122,
+      "p_high_given_weekend": 0.10986547085201794,
+      "p_high_given_url": 0.10495876081271374,
+      "p_reply_given_positive_sentiment": 0.6575535072644899
+    },
+    "distribution_parameters": {
+      "normal_log_engagement_mean": 0.8399797616135807,
+      "normal_log_engagement_sd": 0.9800081625734284,
+      "binomial_n": 100,
+      "binomial_p": 0.10386184930825122,
+      "poisson_hourly_rate": 9.204764086120019,
+      "uniform_range": [
+        0.0,
+        1.0
+      ]
+    },
+    "sampling": {
+      "population_mean_replies": 4.96426794067881,
+      "sample_mean_mean": 5.123516666666666,
+      "sample_mean_sd": 3.8005945153578824,
+      "sample_mean_95_interval": [
+        0.9333333333333333,
+        15.171666666666638
+      ],
+      "bootstrap_mean_95_ci": [
+        4.684013884741714,
+        5.247660993331342
+      ]
+    },
+    "decision_errors": {
+      "simulated_type_i_rate_at_0_05": 0.05,
+      "simulated_power_for_d_0_5": 0.4985,
+      "simulated_type_ii_rate_for_d_0_5": 0.5015
+    }
+  },
+  "time_series": {
+    "weekly_periods": 13,
+    "holdout_periods": 3,
+    "naive_previous_week_mae": 79.66666666666667,
+    "three_week_moving_average_mae": 50.55555555555558
+  }
+}
