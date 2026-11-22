@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from datasuper.reddit_validation import validate_reddit_post
 from datasuper.service import PredictionRequest, predict
 
 
@@ -99,28 +100,80 @@ with modelling:
     st.info("The deployed model predicts after one hour; the publication-time model remains the harder baseline.")
 
 with prediction:
-    title = st.text_input("Post title", "A practical machine learning question")
-    subreddit = st.selectbox("Community", sorted(models["engagement_thresholds"]))
-    hour = st.slider("Hour (UTC)", 0, 23, 12)
-    day = st.slider("Day of week (Monday = 0)", 0, 6, 2)
-    replies_1h = st.number_input("Replies in first hour", min_value=0, value=1)
-    unique_1h = st.number_input(
-        "Unique repliers in first hour", min_value=0, max_value=int(replies_1h), value=0
+    st.subheader("Test a real Reddit post")
+    st.caption(
+        "Supports r/datascience, r/MachineLearning, and r/artificial. "
+        "The post must be at least one hour old."
     )
-    if st.button("Estimate engagement"):
-        payload = PredictionRequest(
-            subreddit=subreddit,
-            title=title,
-            title_words=len(title.split()),
-            sentiment=0.0,
-            author_prior_posts=0,
-            community_posts_prior_24h=50,
-            reply_count_1h=int(replies_1h),
-            unique_repliers_1h=int(unique_1h),
-            hour=hour,
-            day_of_week=day,
-            has_url=False,
-            is_weekend=day >= 5,
+    reddit_url = st.text_input(
+        "Reddit post URL",
+        placeholder="https://www.reddit.com/r/datascience/comments/...",
+    )
+    if st.button("Fetch post and predict", type="primary"):
+        if not reddit_url.strip():
+            st.warning("Enter a Reddit post URL.")
+        else:
+            try:
+                with st.spinner("Reading the post and timestamped comments..."):
+                    record = validate_reddit_post(
+                        reddit_url,
+                        features_path=ROOT / "data" / "processed" / "features.parquet",
+                        output_dir=ROOT / "reports" / "reddit_predictions",
+                    )
+            except Exception as exc:
+                st.error(f"Could not test this post: {exc}")
+            else:
+                result = record["prediction"]
+                observation = record["latest_observation"]
+                columns = st.columns(3)
+                columns[0].metric("Model prediction", result["label"].replace("_", " ").title())
+                columns[1].metric("High-engagement probability", f"{result['probability']:.1%}")
+                columns[2].metric("Replies observed so far", observation["replies_observed_so_far"])
+                st.caption(
+                    f"Prediction used {record['features_at_1h']['reply_count_1h']} replies "
+                    "from the first hour only. Later replies were not model inputs."
+                )
+                if "evaluation" in record:
+                    evaluation = record["evaluation"]
+                    if evaluation["prediction_correct"]:
+                        st.success("The model prediction matched the actual 72-hour outcome.")
+                    else:
+                        st.error("The model prediction did not match the actual 72-hour outcome.")
+                    st.write(
+                        f"Actual: **{evaluation['actual_reply_count_72h']} replies** in 72 hours; "
+                        f"high-engagement threshold: **{evaluation['engagement_reply_threshold']}**."
+                    )
+                else:
+                    st.info(
+                        "The final comparison will be available at "
+                        f"{record['evaluation_available_at_utc']}. Submit this URL again after that time."
+                    )
+                if record["was_in_local_dataset"]:
+                    st.warning("This post was part of the local dataset, so it is not a fresh real-world test.")
+
+    with st.expander("Manual feature test"):
+        title = st.text_input("Post title", "A practical machine learning question")
+        subreddit = st.selectbox("Community", sorted(models["engagement_thresholds"]))
+        hour = st.slider("Hour (UTC)", 0, 23, 12)
+        day = st.slider("Day of week (Monday = 0)", 0, 6, 2)
+        replies_1h = st.number_input("Replies in first hour", min_value=0, value=1)
+        unique_1h = st.number_input(
+            "Unique repliers in first hour", min_value=0, max_value=int(replies_1h), value=0
         )
-        result = predict(payload, log=False)
-        st.metric("High-engagement probability", f"{result['probability']:.1%}")
+        if st.button("Estimate manually"):
+            payload = PredictionRequest(
+                subreddit=subreddit,
+                title=title,
+                title_words=len(title.split()),
+                sentiment=0.0,
+                author_prior_posts=0,
+                community_posts_prior_24h=50,
+                reply_count_1h=int(replies_1h),
+                unique_repliers_1h=int(unique_1h),
+                hour=hour,
+                day_of_week=day,
+                has_url=False,
+                is_weekend=day >= 5,
+            )
+            result = predict(payload, log=False)
+            st.metric("High-engagement probability", f"{result['probability']:.1%}")

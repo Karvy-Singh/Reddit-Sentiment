@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -13,7 +14,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-from datasuper.service import PredictionRequest
+from datasuper.service import PredictionRequest, load_artifact, predict
 
 
 BASE_URL = "https://arctic-shift.photon-reddit.com/api"
@@ -81,6 +82,10 @@ class ArcticShiftClient:
             response = self.session.get(
                 f"{BASE_URL}/{kind}/search", params=params, timeout=(15, 180)
             )
+            # Arctic Shift sometimes uses 422 rather than an empty page at the
+            # end of a valid author-filtered search.
+            if response.status_code == 422 and "author" in filters:
+                break
             response.raise_for_status()
             page = response.json().get("data", [])
             if not page:
@@ -222,3 +227,87 @@ def evaluate_prediction(
         "actual_label": actual_label,
         "prediction_correct": prediction["label"] == actual_label,
     }
+
+
+def validate_reddit_post(
+    reddit_url: str,
+    *,
+    features_path: Path,
+    output_dir: Path,
+    client: ArcticShiftClient | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Create or update a saved real-post prediction and 72-hour evaluation."""
+    artifact = load_artifact()
+    post_id = extract_post_id(reddit_url)
+    client = client or ArcticShiftClient()
+    post = client.post(post_id)
+    subreddit = str(post["subreddit"])
+    if subreddit not in artifact["thresholds"]:
+        supported = ", ".join(f"r/{name}" for name in artifact["thresholds"])
+        raise ValueError(f"model does not support r/{subreddit}; supported: {supported}")
+
+    created_at = timestamp(post["created_utc"])
+    now = now or datetime.now(timezone.utc)
+    age = now - created_at
+    if age < timedelta(hours=1):
+        ready_at = created_at + timedelta(hours=1)
+        raise ValueError(
+            f"one-hour prediction features are available at {ready_at.isoformat()}"
+        )
+
+    dataset_start = history_start(features_path)
+    if created_at < dataset_start:
+        raise ValueError(
+            f"post predates model history, which starts at {dataset_start.isoformat()}"
+        )
+
+    metrics, author_prior, community_prior = collect_post_data(
+        client,
+        post,
+        list(artifact["thresholds"]),
+        dataset_start,
+    )
+    output_path = output_dir / f"{post_id}.json"
+    if output_path.exists():
+        record = json.loads(output_path.read_text(encoding="utf-8"))
+    else:
+        payload = make_payload(
+            post,
+            metrics,
+            author_prior_posts=author_prior,
+            community_posts_prior_24h=community_prior,
+        )
+        record = {
+            "post_id": post_id,
+            "reddit_url": post.get("url") or reddit_url,
+            "subreddit": subreddit,
+            "post_created_at_utc": created_at.isoformat(),
+            "prediction_recorded_at_utc": now.isoformat(),
+            "test_type": "prospective" if age < timedelta(hours=72) else "retrospective",
+            "was_in_local_dataset": post_was_in_local_dataset(features_path, post_id),
+            "features_at_1h": payload.model_dump(exclude={"title"}),
+            "prediction": predict(payload, log=False),
+        }
+
+    record["latest_observation"] = {
+        "observed_at_utc": now.isoformat(),
+        "post_age_hours": age.total_seconds() / 3600,
+        "replies_observed_so_far": metrics["reply_count_72h"],
+    }
+    if age >= timedelta(hours=72):
+        record.pop("evaluation_available_at_utc", None)
+        record["evaluation"] = evaluate_prediction(
+            record["prediction"],
+            metrics["reply_count_72h"],
+            int(artifact["thresholds"][subreddit]),
+        )
+        record["evaluated_at_utc"] = now.isoformat()
+    else:
+        record["evaluation_available_at_utc"] = (
+            created_at + timedelta(hours=72)
+        ).isoformat()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return record

@@ -84,6 +84,7 @@ comments and prior activity in the Arctic Shift archive, and saves the result in
 hours old to record the actual reply count and whether the prediction was
 correct. A post already older than 72 hours is evaluated retrospectively in one
 run; use a post between one and 72 hours old for a genuinely prospective test.
+The dashboard provides the same workflow in its **Prediction** tab.
 
 Start the API:
 

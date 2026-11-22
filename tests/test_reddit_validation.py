@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pandas as pd
 import pytest
 
 from datasuper.reddit_validation import (
@@ -7,6 +8,7 @@ from datasuper.reddit_validation import (
     evaluate_prediction,
     extract_post_id,
     make_payload,
+    validate_reddit_post,
 )
 
 
@@ -69,3 +71,54 @@ def test_real_post_payload_and_evaluation() -> None:
         "actual_label": "high_engagement",
         "prediction_correct": True,
     }
+
+
+def test_saved_prediction_is_later_evaluated(tmp_path) -> None:
+    created = datetime(2024, 4, 1, 12, tzinfo=timezone.utc)
+
+    class FakeClient:
+        def post(self, post_id: str) -> dict:
+            return {
+                "id": post_id,
+                "created_utc": created.timestamp(),
+                "subreddit": "datascience",
+                "title": "A practical machine learning question",
+                "url": f"https://www.reddit.com/comments/{post_id}/",
+                "author": "[deleted]",
+            }
+
+        def search(self, kind: str, **kwargs) -> list[dict]:
+            if kind == "comments":
+                return [
+                    {"id": "c1", "created_utc": created.timestamp() + 1800, "author": "a"},
+                    {"id": "c2", "created_utc": created.timestamp() + 7200, "author": "b"},
+                ]
+            return []
+
+    features_path = tmp_path / "features.parquet"
+    pd.DataFrame(
+        {"post_id": ["training-post"], "created_at": [datetime(2024, 1, 1, tzinfo=timezone.utc)]}
+    ).to_parquet(features_path, index=False)
+    output_dir = tmp_path / "predictions"
+
+    prospective = validate_reddit_post(
+        "newpost",
+        features_path=features_path,
+        output_dir=output_dir,
+        client=FakeClient(),
+        now=created.replace(day=2, hour=10),
+    )
+    assert prospective["test_type"] == "prospective"
+    assert prospective["features_at_1h"]["reply_count_1h"] == 1
+    assert prospective["latest_observation"]["replies_observed_so_far"] == 2
+    assert "evaluation" not in prospective
+
+    evaluated = validate_reddit_post(
+        "newpost",
+        features_path=features_path,
+        output_dir=output_dir,
+        client=FakeClient(),
+        now=created.replace(day=4, hour=13),
+    )
+    assert evaluated["prediction"] == prospective["prediction"]
+    assert evaluated["evaluation"]["actual_reply_count_72h"] == 2
