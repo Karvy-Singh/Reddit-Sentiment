@@ -113,11 +113,12 @@ PYTHONPATH=src .venv/bin/streamlit run dashboard.py
 ## Methodological Guardrails
 
 - Engagement thresholds are learned from training-period data only.
-- High engagement means either top-10% 72-hour replies or top-5% observed Reddit score within the community.
+- High engagement combines 72-hour replies, vote quality (score times upvote ratio), unique repliers, thread depth, and crossposts.
 - Splits are chronological: 70% training, 15% validation, and 15% testing.
 - Preprocessing, TF-IDF, SMOTE, and tuning are fitted without test data.
 - Retrieval-time body text is excluded from prediction because moderation can replace it after publication.
-- The one-hour model uses only replies already observed by the declared one-hour prediction cutoff.
+- The one-hour model uses reply count, comment velocity, unique repliers, and thread depth observed by the declared cutoff.
+- Score and comment velocities between dashboard checks are recorded for future monitoring; historical score velocity is unavailable for training.
 - Reddit score is an outcome only, never a prediction input; exact upvotes and shares are unavailable.
 - Model selection uses validation PR-AUC; the final test period is evaluated after selection.
 - Decision thresholds maximize F1 on validation data only and are then frozen for testing and API inference.

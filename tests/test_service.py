@@ -17,6 +17,7 @@ def valid_payload() -> dict:
         "community_posts_prior_24h": 50,
         "reply_count_1h": 1,
         "unique_repliers_1h": 1,
+        "max_thread_depth_1h": 1,
         "hour": 12,
         "day_of_week": 2,
         "has_url": False,

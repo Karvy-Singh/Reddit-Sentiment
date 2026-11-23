@@ -59,9 +59,9 @@
   },
   "statistical_tests": {
     "url_proportion_z_test": {
-      "statistic": 5.134008454555602,
-      "p_value": 2.8363534600070497e-07,
-      "risk_difference": 0.11164755582377792
+      "statistic": 5.452390484918122,
+      "p_value": 4.9697178422274044e-08,
+      "risk_difference": 0.12417018708509354
     },
     "weekend_welch_t_test": {
       "statistic": 0.9529788572378921,
@@ -69,9 +69,9 @@
       "cohen_d": 0.015682903677407576
     },
     "topic_chi_square": {
-      "statistic": 218.72571612863837,
-      "p_value": 3.524821723415287e-46,
-      "cramers_v": 0.10433180586747622
+      "statistic": 258.31174548052127,
+      "p_value": 1.0538551740997552e-54,
+      "cramers_v": 0.11338063319852698
     },
     "subreddit_anova": {
       "statistic": 402.3256749503024,
@@ -84,16 +84,16 @@
   },
   "probability": {
     "conditional_probabilities": {
-      "p_high": 0.11048074051955807,
-      "p_high_given_weekend": 0.1182225845902976,
-      "p_high_given_url": 0.11164755582377792,
+      "p_high": 0.12287249925350852,
+      "p_high_given_weekend": 0.13065633917651856,
+      "p_high_given_url": 0.12417018708509354,
       "p_reply_given_positive_sentiment": 0.6575535072644899
     },
     "distribution_parameters": {
       "normal_log_engagement_mean": 0.8399797616135807,
       "normal_log_engagement_sd": 0.9800081625734284,
       "binomial_n": 100,
-      "binomial_p": 0.11048074051955807,
+      "binomial_p": 0.12287249925350852,
       "poisson_hourly_rate": 9.204764086120019,
       "uniform_range": [
         0.0,

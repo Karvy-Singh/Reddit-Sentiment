@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -79,11 +81,17 @@ class ArcticShiftClient:
                 "sort": "asc",
                 "meta-app": "DataSuper-real-post-validation",
             }
-            response = self.session.get(
-                f"{BASE_URL}/{kind}/search", params=params, timeout=(15, 180)
-            )
-            # Arctic Shift sometimes uses 422 rather than an empty page at the
-            # end of a valid paginated search.
+            for attempt in range(5):
+                response = self.session.get(
+                    f"{BASE_URL}/{kind}/search", params=params, timeout=(15, 180)
+                )
+                if response.status_code != 422:
+                    break
+                # Arctic Shift sometimes uses 422 rather than an empty page at
+                # the end of a valid paginated or author-filtered search.
+                if records_by_id or "author" in filters:
+                    break
+                time.sleep(attempt + 1)
             if response.status_code == 422 and (
                 records_by_id or "author" in filters
             ):
@@ -119,6 +127,20 @@ def comment_metrics(
         for item in comments
         if created_at <= timestamp(item["created_utc"]) <= seventy_two_hours
     ]
+
+    def max_depth(items: list[dict[str, Any]]) -> int:
+        records = {str(item["id"]): item for item in items if item.get("id")}
+
+        @lru_cache(maxsize=None)
+        def depth(comment_id: str) -> int:
+            parent = str(records[comment_id].get("parent_id") or "")
+            if not parent.startswith("t1_"):
+                return 1
+            parent_id = parent.removeprefix("t1_")
+            return depth(parent_id) + 1 if parent_id in records else 1
+
+        return max((depth(comment_id) for comment_id in records), default=0)
+
     return {
         "reply_count_1h": len(early),
         "unique_repliers_1h": len(
@@ -128,6 +150,7 @@ def comment_metrics(
                 if item.get("author") not in {None, "[deleted]", "[removed]"}
             }
         ),
+        "max_thread_depth_1h": max_depth(early),
         "reply_count_72h": len(outcome),
         "unique_repliers_72h": len(
             {
@@ -136,6 +159,7 @@ def comment_metrics(
                 if item.get("author") not in {None, "[deleted]", "[removed]"}
             }
         ),
+        "max_thread_depth_72h": max_depth(outcome),
     }
 
 
@@ -161,6 +185,7 @@ def make_payload(
         community_posts_prior_24h=community_posts_prior_24h,
         reply_count_1h=metrics["reply_count_1h"],
         unique_repliers_1h=metrics["unique_repliers_1h"],
+        max_thread_depth_1h=metrics["max_thread_depth_1h"],
         hour=created_at.hour,
         day_of_week=created_at.weekday(),
         has_url=bool(post.get("url")),
@@ -219,21 +244,44 @@ def evaluate_prediction(
     prediction: dict[str, Any],
     actual_replies: int,
     actual_score: int,
-    engagement_thresholds: dict[str, int],
+    actual_upvote_ratio: float,
+    actual_unique_repliers: int,
+    actual_max_depth: int,
+    actual_crossposts: int,
+    engagement_thresholds: dict[str, float | int],
 ) -> dict[str, Any]:
+    vote_quality = actual_score * actual_upvote_ratio
     actual_label = (
         "high_engagement"
         if (
             actual_replies >= engagement_thresholds["reply_count_72h"]
-            or actual_score >= engagement_thresholds["score_observed"]
+            or vote_quality >= engagement_thresholds["vote_quality"]
+            or actual_unique_repliers >= engagement_thresholds["unique_repliers_72h"]
+            or actual_max_depth >= engagement_thresholds["max_thread_depth_72h"]
+            or actual_crossposts >= engagement_thresholds["num_crossposts_observed"]
         )
         else "ordinary_engagement"
     )
     return {
         "actual_reply_count_72h": actual_replies,
         "actual_score_observed": actual_score,
+        "actual_upvote_ratio_observed": actual_upvote_ratio,
+        "actual_vote_quality": vote_quality,
+        "actual_unique_repliers_72h": actual_unique_repliers,
+        "actual_max_thread_depth_72h": actual_max_depth,
+        "actual_crossposts_observed": actual_crossposts,
         "engagement_reply_threshold": engagement_thresholds["reply_count_72h"],
         "engagement_score_threshold": engagement_thresholds["score_observed"],
+        "engagement_vote_quality_threshold": engagement_thresholds["vote_quality"],
+        "engagement_unique_repliers_threshold": engagement_thresholds[
+            "unique_repliers_72h"
+        ],
+        "engagement_depth_threshold": engagement_thresholds[
+            "max_thread_depth_72h"
+        ],
+        "engagement_crosspost_threshold": engagement_thresholds[
+            "num_crossposts_observed"
+        ],
         "actual_label": actual_label,
         "prediction_correct": prediction["label"] == actual_label,
     }
@@ -280,9 +328,11 @@ def validate_reddit_post(
     )
     output_path = output_dir / f"{post_id}.json"
     previous_model_version = None
+    previous_observation = None
     if output_path.exists():
         record = json.loads(output_path.read_text(encoding="utf-8"))
         previous_model_version = record.get("prediction", {}).get("model_version")
+        previous_observation = record.get("latest_observation")
     else:
         record = None
     if (
@@ -310,18 +360,40 @@ def validate_reddit_post(
         if previous_model_version and previous_model_version != artifact["model_version"]:
             record["supersedes_model_version"] = previous_model_version
 
+    score_observed = int(post.get("score") or 0)
+    upvote_ratio = float(post.get("upvote_ratio") or 0)
+    crossposts = int(post.get("num_crossposts") or 0)
+    score_velocity = None
+    if previous_observation:
+        previous_time = datetime.fromisoformat(previous_observation["observed_at_utc"])
+        elapsed_hours = (now - previous_time).total_seconds() / 3600
+        if elapsed_hours > 0:
+            score_velocity = (
+                score_observed - int(previous_observation["score_observed"])
+            ) / elapsed_hours
+    observed_hours = min(max(age.total_seconds() / 3600, 1), 72)
     record["latest_observation"] = {
         "observed_at_utc": now.isoformat(),
         "post_age_hours": age.total_seconds() / 3600,
         "replies_observed_so_far": metrics["reply_count_72h"],
-        "score_observed": int(post.get("score") or 0),
+        "score_observed": score_observed,
+        "upvote_ratio_observed": upvote_ratio,
+        "unique_repliers_observed": metrics["unique_repliers_72h"],
+        "max_thread_depth_observed": metrics["max_thread_depth_72h"],
+        "crossposts_observed": crossposts,
+        "comment_velocity_per_hour": metrics["reply_count_72h"] / observed_hours,
+        "score_velocity_per_hour": score_velocity,
     }
     if age >= timedelta(hours=72):
         record.pop("evaluation_available_at_utc", None)
         record["evaluation"] = evaluate_prediction(
             record["prediction"],
             metrics["reply_count_72h"],
-            int(post.get("score") or 0),
+            score_observed,
+            upvote_ratio,
+            metrics["unique_repliers_72h"],
+            metrics["max_thread_depth_72h"],
+            crossposts,
             artifact["thresholds"][subreddit],
         )
         record["evaluated_at_utc"] = now.isoformat()

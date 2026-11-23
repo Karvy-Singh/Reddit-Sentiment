@@ -40,6 +40,8 @@ reply_count_72h
 unique_repliers_72h
 reply_count_1h
 unique_repliers_1h
+max_thread_depth_72h
+max_thread_depth_1h
 first_response_hours
 has_reply_1h
 has_reply_72h
@@ -103,5 +105,6 @@ The downloader skips completed files and resumes `.part` files from their last v
 ## Modelling Windows
 
 - Publication-time model: title, time, community, sentiment, and prior activity available when the post is created
-- Early model: publication features plus reply count and unique repliers observed during the first hour
-- Outcome: high engagement when either 72-hour replies reach the subreddit-specific training-period 90th percentile or observed Reddit score reaches its 95th percentile
+- Early model: publication features plus first-hour reply velocity, unique repliers, and maximum thread depth
+- Outcome: multi-signal high engagement from replies, vote quality, unique repliers, maximum depth, or crossposts
+- Score velocity cannot be reconstructed from the single historical score snapshot; the live workflow records velocity between repeated checks for future models

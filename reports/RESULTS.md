@@ -39,7 +39,7 @@ Five NMF topics represent:
 
 ## Predictive Modelling
 
-The hybrid target is high engagement when a post reaches either the subreddit-specific top 10% of replies within 72 hours or top 5% of observed Reddit score. Thresholds are learned from training data only. Reddit score is a fuzzed archive snapshot, not exact upvotes, and shares are unavailable. Data is split chronologically into 14,065 training, 3,014 validation, and 3,015 test posts. Test prevalence is 9.92%.
+The multi-signal target recognizes discussion volume, vote quality (`score × upvote ratio`), unique participants, conversation depth, and crossposts. Quantile thresholds are learned from training data only; any crosspost also qualifies. Reddit score is a fuzzed archive snapshot, not exact upvotes, and shares are unavailable. Historical score velocity cannot be reconstructed from one snapshot, so the live workflow records it between repeated checks instead. Data is split chronologically into 14,065 training, 3,014 validation, and 3,015 test posts. Test prevalence is 10.38%.
 
 ### Publication-time model
 
@@ -47,29 +47,29 @@ Selected model: Random Forest.
 
 | Metric | Test result |
 |---|---:|
-| Accuracy | 0.761 |
-| Precision | 0.208 |
-| Recall | 0.502 |
-| F1 | 0.294 |
-| ROC-AUC | 0.726 |
-| PR-AUC | 0.252 |
+| Accuracy | 0.710 |
+| Precision | 0.203 |
+| Recall | 0.613 |
+| F1 | 0.305 |
+| ROC-AUC | 0.728 |
+| PR-AUC | 0.242 |
 
-This is a clear improvement over the 0.099 prevalence baseline, but publication-time prediction remains difficult because platform exposure and ranking are unavailable.
+This is a clear improvement over the 0.104 prevalence baseline, but publication-time prediction remains difficult because platform exposure and ranking are unavailable.
 
 ### One-hour early model
 
-Selected model: Random Forest. It adds only reply count and unique repliers observed during the first hour.
+Selected model: Random Forest. It adds first-hour reply velocity, unique repliers, and maximum conversation depth.
 
 | Metric | Test result |
 |---|---:|
 | Accuracy | 0.946 |
-| Precision | 0.740 |
-| Recall | 0.696 |
-| F1 | 0.717 |
-| ROC-AUC | 0.915 |
-| PR-AUC | 0.719 |
+| Precision | 0.779 |
+| Recall | 0.674 |
+| F1 | 0.723 |
+| ROC-AUC | 0.918 |
+| PR-AUC | 0.727 |
 
-Unique repliers during the first hour is the most important early feature. The decision cutoff `0.524` was selected by maximizing F1 on validation data and then frozen before test evaluation. This model answers a different and explicitly declared question: prediction after one hour, not at publication.
+First-hour reply velocity is the most important early feature, followed by unique repliers and conversation depth. The decision cutoff `0.579` was selected by maximizing F1 on validation data and then frozen before test evaluation. This model answers a different and explicitly declared question: prediction after one hour, not at publication.
 
 ### Regression
 

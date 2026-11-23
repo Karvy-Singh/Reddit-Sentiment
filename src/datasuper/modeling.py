@@ -46,12 +46,24 @@ NUMERIC_FEATURES = [
 CATEGORICAL_FEATURES = ["subreddit"]
 TEXT_FEATURE = "title"
 MODEL_FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES + [TEXT_FEATURE]
-EARLY_NUMERIC_FEATURES = NUMERIC_FEATURES + ["reply_count_1h", "unique_repliers_1h"]
+EARLY_NUMERIC_FEATURES = NUMERIC_FEATURES + [
+    "reply_count_1h",
+    "unique_repliers_1h",
+    "max_thread_depth_1h",
+]
 EARLY_MODEL_FEATURES = EARLY_NUMERIC_FEATURES + CATEGORICAL_FEATURES + [TEXT_FEATURE]
 
 
-def engagement_thresholds(train: pd.DataFrame) -> dict[str, dict[str, int]]:
-    required = {"subreddit", "reply_count_72h", "score_observed"}
+def engagement_thresholds(train: pd.DataFrame) -> dict[str, dict[str, float | int]]:
+    required = {
+        "subreddit",
+        "reply_count_72h",
+        "unique_repliers_72h",
+        "max_thread_depth_72h",
+        "score_observed",
+        "upvote_ratio_observed",
+        "num_crossposts_observed",
+    }
     missing = required.difference(train.columns)
     if missing:
         raise ValueError(f"missing engagement columns: {sorted(missing)}")
@@ -62,19 +74,33 @@ def engagement_thresholds(train: pd.DataFrame) -> dict[str, dict[str, int]]:
     score_thresholds = grouped["score_observed"].quantile(
         0.95, interpolation="higher"
     )
+    vote_quality = train["score_observed"] * train["upvote_ratio_observed"]
+    vote_quality_thresholds = vote_quality.groupby(train["subreddit"]).quantile(
+        0.95, interpolation="higher"
+    )
+    unique_replier_thresholds = grouped["unique_repliers_72h"].quantile(
+        0.90, interpolation="higher"
+    )
+    depth_thresholds = grouped["max_thread_depth_72h"].quantile(
+        0.95, interpolation="higher"
+    )
     if reply_thresholds.empty:
         raise ValueError("cannot calculate engagement thresholds from empty data")
     return {
         str(key): {
             "reply_count_72h": int(reply_thresholds[key]),
             "score_observed": int(score_thresholds[key]),
+            "vote_quality": float(vote_quality_thresholds[key]),
+            "unique_repliers_72h": int(unique_replier_thresholds[key]),
+            "max_thread_depth_72h": int(depth_thresholds[key]),
+            "num_crossposts_observed": 1,
         }
         for key in reply_thresholds.index
     }
 
 
 def engagement_labels(
-    frame: pd.DataFrame, thresholds: dict[str, dict[str, int]]
+    frame: pd.DataFrame, thresholds: dict[str, dict[str, float | int]]
 ) -> pd.Series:
     unknown_mask = ~frame["subreddit"].isin(thresholds)
     if unknown_mask.any():
@@ -84,11 +110,21 @@ def engagement_labels(
         {key: value["reply_count_72h"] for key, value in thresholds.items()}
     )
     score_thresholds = frame["subreddit"].map(
-        {key: value["score_observed"] for key, value in thresholds.items()}
+        {key: value["vote_quality"] for key, value in thresholds.items()}
     )
+    unique_thresholds = frame["subreddit"].map(
+        {key: value["unique_repliers_72h"] for key, value in thresholds.items()}
+    )
+    depth_thresholds = frame["subreddit"].map(
+        {key: value["max_thread_depth_72h"] for key, value in thresholds.items()}
+    )
+    vote_quality = frame["score_observed"] * frame["upvote_ratio_observed"]
     return (
         frame["reply_count_72h"].ge(reply_thresholds)
-        | frame["score_observed"].ge(score_thresholds)
+        | vote_quality.ge(score_thresholds)
+        | frame["unique_repliers_72h"].ge(unique_thresholds)
+        | frame["max_thread_depth_72h"].ge(depth_thresholds)
+        | frame["num_crossposts_observed"].ge(1)
     ).astype("int8")
 
 

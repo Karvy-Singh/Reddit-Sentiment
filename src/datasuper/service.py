@@ -27,6 +27,7 @@ class PredictionRequest(BaseModel):
     community_posts_prior_24h: int = Field(ge=0, le=10_000_000)
     reply_count_1h: int = Field(ge=0, le=1_000_000)
     unique_repliers_1h: int = Field(ge=0, le=1_000_000)
+    max_thread_depth_1h: int = Field(ge=0, le=1_000_000)
     hour: int = Field(ge=0, le=23)
     day_of_week: int = Field(ge=0, le=6)
     has_url: bool
@@ -40,6 +41,8 @@ class PredictionRequest(BaseModel):
             raise ValueError("is_weekend must agree with day_of_week")
         if self.unique_repliers_1h > self.reply_count_1h:
             raise ValueError("unique_repliers_1h cannot exceed reply_count_1h")
+        if self.max_thread_depth_1h > self.reply_count_1h:
+            raise ValueError("max_thread_depth_1h cannot exceed reply_count_1h")
         return self
 
 

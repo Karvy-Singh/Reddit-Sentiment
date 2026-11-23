@@ -8,6 +8,7 @@ import hashlib
 import json
 import secrets
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -25,6 +26,7 @@ POST_COLUMNS = [
     "domain",
     "score_observed",
     "num_comments_observed",
+    "num_crossposts_observed",
     "upvote_ratio_observed",
     "is_self",
     "is_over_18",
@@ -111,6 +113,7 @@ def build_posts(paths: list[Path], salt: bytes) -> pd.DataFrame:
                 "domain": record.get("domain"),
                 "score_observed": record.get("score"),
                 "num_comments_observed": record.get("num_comments"),
+                "num_crossposts_observed": record.get("num_crossposts", 0),
                 "upvote_ratio_observed": record.get("upvote_ratio"),
                 "is_self": record.get("is_self"),
                 "is_over_18": record.get("over_18"),
@@ -190,10 +193,25 @@ def build_analysis_posts(
         )
     ]
 
+    parent_ids = eligible_comments.set_index("comment_id")["parent_id"].to_dict()
+    parent_types = eligible_comments.set_index("comment_id")["parent_type"].to_dict()
+
+    @lru_cache(maxsize=None)
+    def comment_depth(comment_id: str) -> int:
+        parent_id = parent_ids.get(comment_id)
+        if parent_types.get(comment_id) != "t1" or parent_id not in parent_ids:
+            return 1
+        return comment_depth(parent_id) + 1
+
+    eligible_comments["thread_depth"] = [
+        comment_depth(comment_id) for comment_id in eligible_comments["comment_id"]
+    ]
+
     metrics = eligible_comments.groupby("post_id").agg(
         reply_count_72h=("comment_id", "size"),
         unique_repliers_72h=("author_id", "nunique"),
         first_response_hours=("hours_after_post", "min"),
+        max_thread_depth_72h=("thread_depth", "max"),
     )
     early_metrics = (
         eligible_comments[eligible_comments["hours_after_post"].le(1)]
@@ -201,6 +219,7 @@ def build_analysis_posts(
         .agg(
             reply_count_1h=("comment_id", "size"),
             unique_repliers_1h=("author_id", "nunique"),
+            max_thread_depth_1h=("thread_depth", "max"),
         )
     )
     analysis_posts = analysis_posts.merge(
@@ -215,11 +234,17 @@ def build_analysis_posts(
     analysis_posts["unique_repliers_72h"] = (
         analysis_posts["unique_repliers_72h"].fillna(0).astype("int64")
     )
+    analysis_posts["max_thread_depth_72h"] = (
+        analysis_posts["max_thread_depth_72h"].fillna(0).astype("int64")
+    )
     analysis_posts["reply_count_1h"] = (
         analysis_posts["reply_count_1h"].fillna(0).astype("int64")
     )
     analysis_posts["unique_repliers_1h"] = (
         analysis_posts["unique_repliers_1h"].fillna(0).astype("int64")
+    )
+    analysis_posts["max_thread_depth_1h"] = (
+        analysis_posts["max_thread_depth_1h"].fillna(0).astype("int64")
     )
     analysis_posts["has_reply_72h"] = analysis_posts["reply_count_72h"] > 0
     analysis_posts["has_reply_1h"] = analysis_posts["reply_count_1h"] > 0

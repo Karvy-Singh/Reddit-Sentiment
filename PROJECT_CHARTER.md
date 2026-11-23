@@ -101,10 +101,10 @@ The transformation reduces the influence of the expected heavy right tail while 
 ### Classification target
 
 ```text
-high_engagement = 1 when reply_count_72h is at or above the
-                  subreddit-specific 90th percentile OR observed Reddit
-                  score is at or above the 95th percentile, with both
-                  thresholds calculated from training-period posts only;
+high_engagement = 1 when replies, vote quality, unique repliers,
+                  maximum thread depth, or crossposts meet the declared
+                  community threshold. Quantile thresholds are calculated
+                  from training-period posts only;
                   otherwise 0
 ```
 
@@ -130,6 +130,7 @@ The primary prediction is made at publication time. Only information available a
 ### Outcome and analytical features
 
 - Replies and unique repliers within 72 hours
+- Reddit score, upvote ratio, and crossposts at archive observation time
 - Response time
 - Thread depth and breadth
 - Weekly activity and engagement aggregates

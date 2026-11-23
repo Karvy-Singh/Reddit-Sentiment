@@ -130,15 +130,38 @@ with prediction:
                 columns[1].metric("High-engagement probability", f"{result['probability']:.1%}")
                 columns[2].metric("Replies observed so far", observation["replies_observed_so_far"])
                 columns[3].metric("Reddit score observed", observation["score_observed"])
+                signal_columns = st.columns(5)
+                signal_columns[0].metric(
+                    "Upvote ratio", f"{observation['upvote_ratio_observed']:.0%}"
+                )
+                signal_columns[1].metric(
+                    "Unique repliers", observation["unique_repliers_observed"]
+                )
+                signal_columns[2].metric(
+                    "Thread depth", observation["max_thread_depth_observed"]
+                )
+                signal_columns[3].metric(
+                    "Crossposts", observation["crossposts_observed"]
+                )
+                signal_columns[4].metric(
+                    "Comments/hour", f"{observation['comment_velocity_per_hour']:.2f}"
+                )
+                score_velocity = observation["score_velocity_per_hour"]
+                st.caption(
+                    "Score velocity since the previous check: "
+                    + (f"{score_velocity:+.2f}/hour" if score_velocity is not None else "check again later")
+                )
                 st.caption(
                     f"Prediction used {record['features_at_1h']['reply_count_1h']} replies "
                     "from the first hour only. Later replies were not model inputs."
                 )
                 thresholds = result["engagement_thresholds"]
                 st.caption(
-                    "For this community, high engagement means at least "
-                    f"{thresholds['reply_count_72h']} replies in 72 hours or Reddit score "
-                    f"{thresholds['score_observed']}."
+                    "High engagement requires any one of: "
+                    f"{thresholds['reply_count_72h']} replies, vote quality "
+                    f"{thresholds['vote_quality']:.1f}, "
+                    f"{thresholds['unique_repliers_72h']} unique repliers, thread depth "
+                    f"{thresholds['max_thread_depth_72h']}, or a crosspost."
                 )
                 st.caption(
                     "Reddit score is the platform's fuzzed net score, not an exact upvote or share count."
@@ -151,10 +174,11 @@ with prediction:
                         st.error("The model prediction did not match the actual 72-hour outcome.")
                     st.write(
                         f"Actual: **{evaluation['actual_reply_count_72h']} replies** in 72 hours "
-                        f"and Reddit score **{evaluation['actual_score_observed']}**. "
-                        "High engagement requires either "
-                        f"**{evaluation['engagement_reply_threshold']} replies** or score "
-                        f"**{evaluation['engagement_score_threshold']}**."
+                        f"from **{evaluation['actual_unique_repliers_72h']} people**, maximum "
+                        f"depth **{evaluation['actual_max_thread_depth_72h']}**, Reddit score "
+                        f"**{evaluation['actual_score_observed']}** at "
+                        f"**{evaluation['actual_upvote_ratio_observed']:.0%}** approval, and "
+                        f"**{evaluation['actual_crossposts_observed']} crossposts**."
                     )
                 else:
                     st.info(
@@ -173,6 +197,12 @@ with prediction:
         unique_1h = st.number_input(
             "Unique repliers in first hour", min_value=0, max_value=int(replies_1h), value=0
         )
+        depth_1h = st.number_input(
+            "Maximum reply depth in first hour",
+            min_value=0,
+            max_value=int(replies_1h),
+            value=0,
+        )
         if st.button("Estimate manually"):
             payload = PredictionRequest(
                 subreddit=subreddit,
@@ -183,6 +213,7 @@ with prediction:
                 community_posts_prior_24h=50,
                 reply_count_1h=int(replies_1h),
                 unique_repliers_1h=int(unique_1h),
+                max_thread_depth_1h=int(depth_1h),
                 hour=hour,
                 day_of_week=day,
                 has_url=False,

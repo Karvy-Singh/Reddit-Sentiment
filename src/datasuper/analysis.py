@@ -51,11 +51,33 @@ def add_high_engagement(
     score_thresholds = result.groupby("subreddit")["score_observed"].transform(
         lambda values: values.quantile(score_quantile, interpolation="higher")
     )
+    result["vote_quality_observed"] = (
+        result["score_observed"] * result["upvote_ratio_observed"]
+    )
+    vote_quality_thresholds = result.groupby("subreddit")[
+        "vote_quality_observed"
+    ].transform(
+        lambda values: values.quantile(score_quantile, interpolation="higher")
+    )
+    unique_thresholds = result.groupby("subreddit")["unique_repliers_72h"].transform(
+        lambda values: values.quantile(quantile, interpolation="higher")
+    )
+    depth_thresholds = result.groupby("subreddit")["max_thread_depth_72h"].transform(
+        lambda values: values.quantile(score_quantile, interpolation="higher")
+    )
     result["high_engagement_threshold"] = reply_thresholds.astype("int64")
     result["high_engagement_score_threshold"] = score_thresholds.astype("int64")
+    result["high_engagement_vote_quality_threshold"] = vote_quality_thresholds
+    result["high_engagement_unique_repliers_threshold"] = unique_thresholds.astype(
+        "int64"
+    )
+    result["high_engagement_depth_threshold"] = depth_thresholds.astype("int64")
     result["high_engagement"] = result["reply_count_72h"].ge(
         reply_thresholds
-    ) | result["score_observed"].ge(score_thresholds)
+    ) | result["vote_quality_observed"].ge(vote_quality_thresholds)
+    result["high_engagement"] |= result["unique_repliers_72h"].ge(unique_thresholds)
+    result["high_engagement"] |= result["max_thread_depth_72h"].ge(depth_thresholds)
+    result["high_engagement"] |= result["num_crossposts_observed"].ge(1)
     return result
 
 

@@ -13,7 +13,7 @@ from datasuper.reddit_validation import (
 )
 
 
-def test_archive_422_after_valid_page_ends_pagination() -> None:
+def test_archive_retries_initial_422_and_accepts_422_after_valid_page(monkeypatch) -> None:
     class FakeResponse:
         def __init__(self, status_code: int, data: list[dict] | None = None) -> None:
             self.status_code = status_code
@@ -29,6 +29,7 @@ def test_archive_422_after_valid_page_ends_pagination() -> None:
     class FakeSession:
         def __init__(self) -> None:
             self.responses = [
+                FakeResponse(422),
                 FakeResponse(200, [{"id": "p1", "created_utc": 1_704_067_200}]),
                 FakeResponse(422),
             ]
@@ -36,6 +37,7 @@ def test_archive_422_after_valid_page_ends_pagination() -> None:
         def get(self, *args, **kwargs) -> FakeResponse:
             return self.responses.pop(0)
 
+    monkeypatch.setattr("datasuper.reddit_validation.time.sleep", lambda _: None)
     records = ArcticShiftClient(FakeSession()).search(
         "posts",
         after=datetime(2024, 1, 1, tzinfo=timezone.utc),
@@ -61,16 +63,18 @@ def test_extract_post_id_from_url_or_bare_id() -> None:
 def test_comment_metrics_observe_fixed_horizons() -> None:
     created = datetime(2024, 1, 1, tzinfo=timezone.utc)
     comments = [
-        {"created_utc": created.timestamp() + 60, "author": "one"},
-        {"created_utc": created.timestamp() + 3600, "author": "one"},
-        {"created_utc": created.timestamp() + 7200, "author": "two"},
-        {"created_utc": created.timestamp() + 72 * 3600 + 1, "author": "three"},
+        {"id": "c1", "parent_id": "t3_post", "created_utc": created.timestamp() + 60, "author": "one"},
+        {"id": "c2", "parent_id": "t1_c1", "created_utc": created.timestamp() + 3600, "author": "one"},
+        {"id": "c3", "parent_id": "t1_c2", "created_utc": created.timestamp() + 7200, "author": "two"},
+        {"id": "c4", "parent_id": "t3_post", "created_utc": created.timestamp() + 72 * 3600 + 1, "author": "three"},
     ]
     assert comment_metrics(comments, created) == {
         "reply_count_1h": 2,
         "unique_repliers_1h": 1,
+        "max_thread_depth_1h": 2,
         "reply_count_72h": 3,
         "unique_repliers_72h": 2,
+        "max_thread_depth_72h": 3,
     }
 
 
@@ -84,6 +88,7 @@ def test_real_post_payload_and_evaluation() -> None:
     metrics = {
         "reply_count_1h": 2,
         "unique_repliers_1h": 2,
+        "max_thread_depth_1h": 1,
         "reply_count_72h": 12,
     }
     payload = make_payload(
@@ -102,12 +107,32 @@ def test_real_post_payload_and_evaluation() -> None:
         prediction,
         2,
         136,
-        {"reply_count_72h": 11, "score_observed": 26},
+        0.95,
+        2,
+        3,
+        1,
+        {
+            "reply_count_72h": 11,
+            "score_observed": 26,
+            "vote_quality": 25.0,
+            "unique_repliers_72h": 7,
+            "max_thread_depth_72h": 5,
+            "num_crossposts_observed": 1,
+        },
     ) == {
         "actual_reply_count_72h": 2,
         "actual_score_observed": 136,
+        "actual_upvote_ratio_observed": 0.95,
+        "actual_vote_quality": 129.2,
+        "actual_unique_repliers_72h": 2,
+        "actual_max_thread_depth_72h": 3,
+        "actual_crossposts_observed": 1,
         "engagement_reply_threshold": 11,
         "engagement_score_threshold": 26,
+        "engagement_vote_quality_threshold": 25.0,
+        "engagement_unique_repliers_threshold": 7,
+        "engagement_depth_threshold": 5,
+        "engagement_crosspost_threshold": 1,
         "actual_label": "high_engagement",
         "prediction_correct": True,
     }
@@ -126,13 +151,15 @@ def test_saved_prediction_is_later_evaluated(tmp_path) -> None:
                 "url": f"https://www.reddit.com/comments/{post_id}/",
                 "author": "[deleted]",
                 "score": 3,
+                "upvote_ratio": 0.9,
+                "num_crossposts": 0,
             }
 
         def search(self, kind: str, **kwargs) -> list[dict]:
             if kind == "comments":
                 return [
-                    {"id": "c1", "created_utc": created.timestamp() + 1800, "author": "a"},
-                    {"id": "c2", "created_utc": created.timestamp() + 7200, "author": "b"},
+                    {"id": "c1", "parent_id": "t3_newpost", "created_utc": created.timestamp() + 1800, "author": "a"},
+                    {"id": "c2", "parent_id": "t1_c1", "created_utc": created.timestamp() + 7200, "author": "b"},
                 ]
             return []
 
